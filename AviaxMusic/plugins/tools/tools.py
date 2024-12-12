@@ -1,6 +1,7 @@
 from pyrogram import Client
 from pyrogram.raw.types import UpdateGroupCallParticipants
 from pyrogram.types import Message
+from AviaxMusic import app
 
 
 @app.on_raw_update()
