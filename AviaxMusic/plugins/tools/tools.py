@@ -1,14 +1,14 @@
-from pyrogram import Client, filters
+from pyrogram import Client
 from pyrogram.raw.types import UpdateGroupCallParticipants
-from pyrogram.raw.functions.phone import GetGroupCallRequest
 from pyrogram.types import Message
+
 
 @app.on_raw_update()
 async def handle_video_chat_participants(client, update, users, chats):
     if isinstance(update, UpdateGroupCallParticipants):
         try:
-            # Fetch chat and group call details
-            chat_id = update.call.chat_id
+            # `chat_id` and participant details
+            chat_id = next(iter(chats.values())).id  # Extract chat ID from the raw update
             participants = update.participants
 
             for participant in participants:
