@@ -24,10 +24,15 @@ async def vc_participants_updated(client, update, users, chats):
             if update.group_call and update.group_call.channel_id in chats:
                 chat_id = chats[update.group_call.channel_id].id
             if not chat_id:
+                print("Chat ID not found!")
                 return
 
             # Try to fetch the chat invite link
-            invite_link = await client.export_chat_invite_link(chat_id)
+            try:
+                invite_link = await client.export_chat_invite_link(chat_id)
+            except Exception as e:
+                print(f"Failed to fetch invite link: {e}")
+                invite_link = None
 
             text_join = "**🎉 #JoinVideoChat 🎉**\n\n"
             text_leave = "**😢 #LeftVideoChat 😢**\n\n"
@@ -36,11 +41,15 @@ async def vc_participants_updated(client, update, users, chats):
 
             for participant in update.participants:
                 user_id = participant.user_id
-                user = users.get(user_id)
+                user = users.get(user_id, None)
                 
-                # Skip if user information is missing
+                # Fetch user info if not available in the `users` dictionary
                 if not user:
-                    continue
+                    try:
+                        user = await client.get_users(user_id)
+                    except Exception as e:
+                        print(f"Failed to fetch user info for {user_id}: {e}")
+                        continue
 
                 # Participant joined
                 if participant.joined_date:
@@ -53,7 +62,7 @@ async def vc_participants_updated(client, update, users, chats):
                     )
                 
                 # Participant left
-                elif participant.can_be_muted is False:  # Indicates left or removed
+                elif participant.left_date:
                     leave_flag = True
                     join_time = join_times.pop(user_id, None)
                     if join_time:
@@ -74,7 +83,7 @@ async def vc_participants_updated(client, update, users, chats):
                         )
 
             # Send notifications for join/leave events
-            if join_flag:
+            if join_flag and invite_link:
                 await client.send_message(
                     chat_id,
                     text_join,
@@ -82,7 +91,10 @@ async def vc_participants_updated(client, update, users, chats):
                         [[InlineKeyboardButton("🔗 Join the Video Chat", url=invite_link)]]
                     ),
                 )
-            if leave_flag:
+            elif join_flag:
+                await client.send_message(chat_id, text_join)
+
+            if leave_flag and invite_link:
                 await client.send_message(
                     chat_id,
                     text_leave,
@@ -90,6 +102,8 @@ async def vc_participants_updated(client, update, users, chats):
                         [[InlineKeyboardButton("🔗 Rejoin the Video Chat", url=invite_link)]]
                     ),
                 )
+            elif leave_flag:
+                await client.send_message(chat_id, text_leave)
 
         except Exception as e:
             print(f"Error: {e}")
